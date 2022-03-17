@@ -1,50 +1,42 @@
-# investigates how long argsort loops can be
-# argsort loops is formed when argsort(argsort(...(a)))... = a
-# i.e. repeated application of argsort of an array gets back to the array itself.
-
+"""
+Proved on paper: argsort(argsort(a))==a.
+But we want to find out under what condition does argsort(a)==a.
+____
+Well! Turns out this sequence of numbers that my program prints out is related to this:
+https://oeis.org/A000085
+And what I once called 1loop are actually technically named involutions.
+"""
 from itertools import permutations as P
+import numpy as np
 from numpy import array as ary
-from pprint import pprint
-from collections import defaultdict
-from numpy import argsort
 
-def is1loop(b):
-    b = ary(b)
-    indices = list(range(len(b)))
-    return (b[b] == indices).all()
+def deterministic(n=1):
+    """Analytically run through all permutations of np.arange(n) to check if they're cycle length = 2 vectors or not."""
+    while n:
+        num_perms, non_self_argsort = 0, 0
+        for pa in P(range(n)):
+            num_perms += 1
+            if (np.argsort(pa)!=ary(pa)).any():
+                non_self_argsort += 1
+            else:
+                print(pa)
+        input(f"For vectors of size n={n}, {num_perms-non_self_argsort}/{num_perms} has a cycle length = 1")
+        n += 1
 
-def is2loop(b):
-    return not is1loop(b)
+def probabilistic(n=1, num_samples=100000):
+    """Randomly sample whether a specific permutation gives a cycle length = 2 vectors or not."""
+    while n:
+        non_self_argsort = 0
+        a0 = np.arange(n)
+        a1 = a0
+        for _ in range(num_samples):
+            init_a = a1.copy()
+            np.random.shuffle(a1)
+            non_self_argsort += int((a1!=init_a).any())
+        input(f"For vectors of size n={n}, {non_self_argsort}/{num_samples} has a cycle length = 2")
+        n += 1
 
 if __name__=="__main__":
-    for array_length in range(10):
-        sorted_version = {pa:argsort(pa) for pa in P(range(array_length))}
-        for key, sorted_key in sorted_version.items():
-            if key==tuple(sorted_key):
-                print(key)
-                print(tuple(sorted_key))
-                print("")
-
-        loop_size = {}
-        loop_size_count = defaultdict(int)
-        for key, sorted_key in sorted_version.items():
-            traversed_keys = (key,)
-            # while tuple(sorted_key) not in traversed_keys:
-            while tuple(sorted_key) != traversed_keys[0]:
-                traversed_keys += (key,)
-                key, sorted_key = tuple(sorted_key), sorted_version[tuple(sorted_key)]
-
-            loop_size[key] = len(traversed_keys)
-            if loop_size[key]==1:
-                assert is1loop(sorted_key), "My is1loop gives false negatives."
-            else:
-                assert not is1loop(sorted_key), "my is1loop checker gives False positives."
-
-        for loop_length in loop_size.values():
-            loop_size_count[loop_length] += 1
-        # if array_length<7:
-        #     pprint(loop_size)
-
-        print(f"Loop size counts = {loop_size_count}")
-        print("The fraction of self-loops = {}".format(loop_size_count[1]/sum(loop_size_count.values())))
-        input(f"Completd array size of {array_length}. Conclusion: max loop size = {max(loop_size.values())}\n")
+    deterministic()
+    # np.random.seed(0)
+    # probabilistic()
